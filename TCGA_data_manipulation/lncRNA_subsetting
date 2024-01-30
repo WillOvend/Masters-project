@@ -1,0 +1,53 @@
+library(tidyverse)
+library(SummarizedExperiment)
+library(DESeq2)
+library(TCGAbiolinks)
+if (!require("BiocManager", quietly = TRUE))
+  install.packages("BiocManager")
+library(DESeq2)
+library(dplyr)
+library(tidyr)
+
+###get counts data for liver and hepatocellular carcinoma patients 
+query_lihc_all = GDCquery(                       
+  project = "TCGA-LIHC",
+  data.category = "Transcriptome Profiling", # parameter enforced by GDCquery
+  experimental.strategy = "RNA-Seq",
+  workflow.type = "STAR - Counts",
+  data.type = "Gene Expression Quantification",
+  sample.type = "Primary Tumor",
+  access = "open")
+
+#create summarized experiment variable 
+tcga_lihc_data <- GDCprepare(query_lihc_all, summarizedExperiment = TRUE)
+#Save the meta data to a dataframe 
+gene_metadata <- as.data.frame(rowData(tcga_lihc_data)) 
+
+#create a matrix with transcriptomic data for each case 
+lihc_matrix <- assay(tcga_lihc_data, "unstranded")
+
+#view the matrix 
+lihc_matrix[1:10,1:10]
+
+#save the column data 
+coldata <- as.data.frame(colData(tcga_lihc_data))  
+
+
+dds <- DESeqDataSetFromMatrix(countData = lihc_matrix,
+                              colData = coldata,
+                              design = ~ 1)
+#variance stabilising transoformation 
+vsd <- vst(dds, blind=FALSE)
+lihc_matrix_vst <- assay(vsd)
+lihc_matrix_vst[1:10,1:10]
+
+#convert the matrix into a dataframe, transform the data swapping rows and columns
+#create key value pairs for cas ids and counts, join the metadata to the dataframe 
+#then filter the dataframe to only include lncRNA data
+lncRNA_data <- lihc_matrix_vst %>%
+  as.data.frame() %>%
+  rownames_to_column(var = 'gene_id') %>%
+  gather(key = 'case_id', value = 'counts', -gene_id) %>%
+  left_join(., gene_metadata, by = 'gene_id') %>%
+  filter(gene_type == "lncRNA") %>%
+  
