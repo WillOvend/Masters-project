@@ -49,5 +49,18 @@ lncRNA_data <- lihc_matrix_vst %>%
   rownames_to_column(var = 'gene_id') %>%
   gather(key = 'case_id', value = 'counts', -gene_id) %>%
   left_join(., gene_metadata, by = 'gene_id') %>%
-  filter(gene_type == "lncRNA") %>%
-  
+  filter(gene_type == "lncRNA")
+
+lncRNA_data$case_id <- gsub('-01.*','', lncRNA_data$case_id) #this says sub everything after the '01' with nothing - gets rid of the end of the ID
+
+#load in the clinical metadata 
+clinical_hcc <- GDCquery_clinic("TCGA-LIHC")
+
+#merge the lncRNA data and the clinical metadata into one dataframe 
+lncRNA_merged_data <- merge(lncRNA_data, clinical_hcc, by.x = 'case_id', by.y = 'submitter_id')
+
+#merge the previously generated dataframe with the gene metadata to get the gene names 
+lncRNA_merged_data1 <- merge(lncRNA_merged_data, gene_metadata, by.x = 'gene_id', by.y = 'gene_id')
+
+#save the dataframe to a csv file 
+write.csv(lncRNA_merged_data1, "/Users/williamovenden/Library/Mobile Documents/com~apple~CloudDocs/R/masters_project/lnc_RNA_merged_data1.csv")
